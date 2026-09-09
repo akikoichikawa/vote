@@ -8,7 +8,47 @@
 
   function $(id) { return document.getElementById(id); }
 
-  /* 投票ページと同じくJSONPで取得（CORSの影響を受けない） */
+  function buildQuery(params) {
+    var q = [];
+    for (var k in params) {
+      if (Object.prototype.hasOwnProperty.call(params, k)) {
+        q.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
+      }
+    }
+    q.push("_=" + Date.now());
+    return q.join("&");
+  }
+
+  /* 本命の通信経路。credentials:"omit" でGoogleのログイン情報を送らずに問い合わせる
+     （投票ページと同じ理由。詳しくは assets/app.js のコメント参照）。 */
+  function fetchJson(params, cb) {
+    if (typeof window.fetch !== "function") { cb(new Error("no-fetch")); return; }
+
+    var ctrl = null, timer = null;
+    try { ctrl = new AbortController(); } catch (e) { ctrl = null; }
+    var opts = { method: "GET", credentials: "omit", cache: "no-store", redirect: "follow" };
+    if (ctrl) {
+      opts.signal = ctrl.signal;
+      timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, TIMEOUT);
+    }
+
+    window.fetch(CFG.GAS_URL + "?" + buildQuery(params), opts)
+      .then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      })
+      .then(function (data) {
+        if (timer) { clearTimeout(timer); }
+        if (!data || typeof data.ok === "undefined") { throw new Error("unexpected"); }
+        cb(null, data);
+      })
+      .catch(function (err) {
+        if (timer) { clearTimeout(timer); }
+        cb(err || new Error("fetch-failed"));
+      });
+  }
+
+  /* 予備の通信経路（古い端末向け） */
   function jsonp(params, cb) {
     var name = "__dvr_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
     var done = false;
@@ -26,16 +66,7 @@
     var timer = setTimeout(function () { finish(new Error("timeout")); }, TIMEOUT);
     window[name] = function (data) { finish(null, data); };
 
-    var q = [];
-    for (var k in params) {
-      if (Object.prototype.hasOwnProperty.call(params, k)) {
-        q.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
-      }
-    }
-    q.push("callback=" + name);
-    q.push("_=" + Date.now());
-
-    s.src = CFG.GAS_URL + "?" + q.join("&");
+    s.src = CFG.GAS_URL + "?" + buildQuery(params) + "&callback=" + name;
     s.onerror = function () { finish(new Error("network")); };
     document.head.appendChild(s);
   }
@@ -139,7 +170,7 @@
       return;
     }
 
-    jsonp({ action: "results" }, function (err, res) {
+    request({ action: "results" }, function (err, res) {
       if (err || !res || !res.ok) {
         if ($("chart").hidden) {
           $("state").textContent = "結果を取得できませんでした。再試行します…";
@@ -149,6 +180,14 @@
         return;
       }
       render(res);
+    });
+  }
+
+  /* まず fetch、だめなら JSONP */
+  function request(params, cb) {
+    fetchJson(params, function (err, data) {
+      if (!err && data) { cb(null, data); return; }
+      jsonp(params, cb);
     });
   }
 

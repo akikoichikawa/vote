@@ -91,8 +91,50 @@
 
   /* ---------------- 通信 ---------------- */
 
-  /* JSONP。Apps Script は CORS が絡むと詰まりやすいので、
-     script タグ経由なら確実に届く。 */
+  function buildQuery(params) {
+    var q = [];
+    for (var k in params) {
+      if (Object.prototype.hasOwnProperty.call(params, k)) {
+        q.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
+      }
+    }
+    q.push("_=" + Date.now());
+    return q.join("&");
+  }
+
+  /* 本命の通信経路。credentials:"omit" が要点で、ブラウザのGoogleログイン情報を
+     一切送らずに問い合わせる。ログイン中のアカウントに利用制限がかかっていても
+     （13歳未満の管理対象アカウントなど）、匿名アクセスとして扱われるため通る。
+     Apps Script 側は Access-Control-Allow-Origin: * を返すので CORS も問題ない。 */
+  function fetchJson(params, cb) {
+    if (typeof window.fetch !== "function") { cb(new Error("no-fetch")); return; }
+
+    var ctrl = null, timer = null;
+    try { ctrl = new AbortController(); } catch (e) { ctrl = null; }
+    var opts = { method: "GET", credentials: "omit", cache: "no-store", redirect: "follow" };
+    if (ctrl) {
+      opts.signal = ctrl.signal;
+      timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, TIMEOUT);
+    }
+
+    window.fetch(CFG.GAS_URL + "?" + buildQuery(params), opts)
+      .then(function (res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      })
+      .then(function (data) {
+        if (timer) { clearTimeout(timer); }
+        if (!data || typeof data.ok === "undefined") { throw new Error("unexpected"); }
+        cb(null, data);
+      })
+      .catch(function (err) {
+        if (timer) { clearTimeout(timer); }
+        cb(err || new Error("fetch-failed"));
+      });
+  }
+
+  /* 予備の通信経路。fetch が使えない古い端末向け。
+     script タグはログイン情報を送ってしまうので、あくまで最後の手段。 */
   function jsonp(params, cb) {
     var name = "__dv_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
     var done = false;
@@ -110,22 +152,21 @@
     var timer = setTimeout(function () { finish(new Error("timeout")); }, TIMEOUT);
     window[name] = function (data) { finish(null, data); };
 
-    var q = [];
-    for (var k in params) {
-      if (Object.prototype.hasOwnProperty.call(params, k)) {
-        q.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
-      }
-    }
-    q.push("callback=" + name);
-    q.push("_=" + Date.now());
-
-    s.src = CFG.GAS_URL + "?" + q.join("&");
+    s.src = CFG.GAS_URL + "?" + buildQuery(params) + "&callback=" + name;
     s.onerror = function () { finish(new Error("network")); };
     document.head.appendChild(s);
   }
 
+  /* まず fetch、だめなら JSONP */
+  function request(params, cb) {
+    fetchJson(params, function (err, data) {
+      if (!err && data) { cb(null, data); return; }
+      jsonp(params, cb);
+    });
+  }
+
   function sendVote(dancer, code, cb) {
-    jsonp({
+    request({
       action: "vote",
       voterId: getVoterId(),
       dancerId: dancer.id,
@@ -242,6 +283,12 @@
       switch (res.status) {
         case "duplicate":
           markDoneLocally(res.dancerId || selected.id, res.dancerName || nameOf(res.dancerId));
+          // 通信のやり直しで同じ組に二重送信された場合は、投票が通ったものとして見せる
+          if (normId(res.dancerId) === normId(selected.id)) {
+            $("doneDancer").textContent = selected.name;
+            show("view-done");
+            break;
+          }
           $("alreadyDancer").textContent = res.dancerName || nameOf(res.dancerId) || "";
           show("view-already");
           break;
