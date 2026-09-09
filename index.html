@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>ダンス投票</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- 投票フォーム -->
+  <section id="view-vote" class="view">
+    <header class="head">
+      <h1 id="eventTitle">ダンス投票</h1>
+      <p id="eventSubtitle" class="sub"></p>
+    </header>
+
+    <div id="codeBox" class="codebox" hidden>
+      <label for="venueCode">会場の合言葉</label>
+      <input type="text" id="venueCode" inputmode="text" autocomplete="off"
+             placeholder="会場で案内された言葉を入力">
+    </div>
+
+    <p class="lead">よかったと思う<strong>1組</strong>を選んでください</p>
+
+    <ul id="dancerList" class="dancers"></ul>
+
+    <p id="formError" class="error" hidden></p>
+
+    <div class="footer-space"></div>
+  </section>
+
+  <!-- 送信中 -->
+  <section id="view-sending" class="view center" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="big">送信中…</p>
+    <p class="sub">画面を閉じずにお待ちください</p>
+  </section>
+
+  <!-- 完了 -->
+  <section id="view-done" class="view center" hidden>
+    <div class="check" aria-hidden="true">✓</div>
+    <p class="big">投票ありがとうございました！</p>
+    <p id="doneDancer" class="voted-name"></p>
+    <p class="sub">投票は1人1回です。<br>結果発表をお楽しみに。</p>
+  </section>
+
+  <!-- 投票済み -->
+  <section id="view-already" class="view center" hidden>
+    <div class="check muted" aria-hidden="true">✓</div>
+    <p class="big">投票済みです</p>
+    <p id="alreadyDancer" class="voted-name"></p>
+    <p class="sub">1人1回までの投票となっています。<br>ご協力ありがとうございました。</p>
+  </section>
+
+  <!-- 受付時間外 / エラー -->
+  <section id="view-closed" class="view center" hidden>
+    <div class="cross" aria-hidden="true">!</div>
+    <p class="big" id="closedTitle">現在、投票を受け付けていません</p>
+    <p class="sub" id="closedMsg"></p>
+    <button type="button" class="retry" id="retryBtn">もう一度試す</button>
+  </section>
+
+</div>
+
+<!-- 固定の投票ボタン -->
+<div id="submitBar" class="submitbar" hidden>
+  <button type="button" id="submitBtn" class="submit" disabled>この1組に投票する</button>
+</div>
+
+<script src="config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

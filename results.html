@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>投票結果</title>
+<style>
+/* 投影用：暗い会場のスクリーンに合わせた1系列のランキング棒グラフ */
+.viz-root{
+  color-scheme:dark;
+  --surface-1:#1a1626;      /* 描画面 */
+  --surface-2:#241f33;      /* トラック */
+  --text-primary:#ffffff;
+  --text-secondary:#c0bad4;
+  --text-muted:#8b83a8;
+  --series-1:#d55181;       /* 得票バー（単一系列） */
+  --line:#3a3350;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--surface-1);
+  color:var(--text-primary);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  line-height:1.5;
+}
+.viz-root{max-width:1100px;margin:0 auto;padding:32px 28px 48px}
+
+/* ---- 見出し ---- */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:8px}
+h1{font-size:clamp(24px,3.2vw,40px);margin:0;letter-spacing:.02em}
+.caption{color:var(--text-secondary);font-size:clamp(13px,1.3vw,17px);margin:6px 0 0}
+.hero{text-align:right;line-height:1.1}
+.hero .num{font-size:clamp(40px,6vw,76px);font-weight:800;font-variant-numeric:tabular-nums;display:block}
+.hero .lbl{font-size:clamp(12px,1.2vw,15px);color:var(--text-secondary)}
+
+/* ---- ランキング ---- */
+.chart{list-style:none;margin:28px 0 0;padding:0;display:grid;gap:14px}
+.row{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:center}
+.rank{
+  width:clamp(38px,4vw,54px);height:clamp(38px,4vw,54px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-2);color:var(--text-secondary);
+  font-weight:800;font-size:clamp(16px,1.9vw,24px);font-variant-numeric:tabular-nums;
+}
+.row .label{display:flex;align-items:baseline;justify-content:space-between;gap:16px;min-width:0}
+.team{font-size:clamp(17px,2.1vw,27px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.value{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-secondary);font-size:clamp(14px,1.5vw,19px)}
+.value b{color:var(--text-primary);font-size:clamp(19px,2.3vw,30px);margin-right:2px}
+.track{
+  grid-column:2;height:clamp(14px,1.6vw,22px);border-radius:0 4px 4px 0;
+  background:var(--surface-2);position:relative;overflow:hidden;
+}
+.bar{
+  height:100%;width:0;border-radius:0 4px 4px 0;background:var(--series-1);
+  transition:width .6s cubic-bezier(.22,.9,.3,1);
+}
+
+/* ---- 状態表示 ---- */
+.state{text-align:center;color:var(--text-muted);padding:64px 0;font-size:18px}
+.foot{margin-top:32px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+      border-top:1px solid var(--line);padding-top:14px;color:var(--text-muted);font-size:14px}
+button{
+  padding:10px 20px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface-2);color:var(--text-primary);font:inherit;cursor:pointer
+}
+button:hover{border-color:var(--series-1)}
+
+/* 発表前に伏せておくモード */
+.hidden-mode .chart{filter:blur(18px);opacity:.55;pointer-events:none}
+.hidden-mode .hero .num{filter:blur(16px)}
+
+@media (prefers-reduced-motion:reduce){ .bar{transition:none} }
+</style>
+</head>
+<body>
+<div class="viz-root" id="root">
+
+  <div class="top">
+    <div>
+      <h1 id="title">投票結果</h1>
+      <p class="caption" id="caption">集計中…</p>
+    </div>
+    <div class="hero">
+      <span class="num" id="total">–</span>
+      <span class="lbl">総投票数</span>
+    </div>
+  </div>
+
+  <p class="state" id="state">読み込み中…</p>
+  <ol class="chart" id="chart" hidden></ol>
+
+  <div class="foot">
+    <span id="updated"></span>
+    <span>
+      <button type="button" id="toggleBtn">結果を伏せる</button>
+      <button type="button" id="reloadBtn">今すぐ更新</button>
+    </span>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script src="assets/results.js"></script>
+</body>
+</html>
